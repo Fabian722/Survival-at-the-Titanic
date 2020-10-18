@@ -1,0 +1,36 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+titanic=pd.read_csv("titanic.csv")
+
+
+#Data discovery
+
+titanic.hist()
+titanic.info()
+
+#scatter matrix
+from pandas.plotting import scatter_matrix
+attributes=titanic.columns
+scatter_matrix(titanic[attributes])
+
+
+
+#correlation matrix
+corr=titanic.corr()
+corr['Survived'].sort_values()
+
+
+
+#Data Cleaning
+titanic.drop('Ticket', axis=1, inplace=True)
+titanic.Ticket.value_counts()
+titanic.Cabin.value_counts()
+titanic.corr()
+
+
+#male 1 female 0
+titanic.Sex=[1  if x=='male' else 0  for x in titanic.Sex]
+
