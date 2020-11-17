@@ -1,0 +1,184 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+titanic=pd.read_csv("titanic.csv")
+
+
+#Data discovery
+
+titanic.hist()
+titanic.info()
+
+#scatter matrix
+from pandas.plotting import scatter_matrix
+attributes=titanic.columns
+scatter_matrix(titanic[attributes])
+
+
+
+#correlation matrix
+corr=titanic.corr()
+corr['Survived'].sort_values()
+
+
+
+#________________Data Cleaning
+titanic=pd.read_csv("titanic.csv")
+#drop atttributes not needed
+titanic.drop(['Cabin', 'PassengerId','Ticket','Name'], axis=1, inplace=True)
+
+
+
+#DROP NAs from Dataset SET
+titanic.dropna(inplace=True)  
+titanic.reset_index(drop=True, inplace=True)  
+
+
+
+# Turn Fare attribute into float
+titanic['Fare']=titanic['Fare'].astype(float)
+titanic['Age']=titanic['Age'].astype(int)
+
+
+
+#________________________________________________
+
+
+#___Creating stratified train set by Sex
+from sklearn.model_selection import StratifiedShuffleSplit
+
+split=StratifiedShuffleSplit(n_splits=1, test_size=.2, random_state=42)
+for train_index, test_index in split.split(titanic, titanic['Sex']):
+    strat_train_set=titanic.loc[train_index]
+    strat_test_set=titanic.loc[test_index]
+    
+    
+    
+#index reset    
+strat_train_set.reset_index(drop=True, inplace=True)  
+strat_test_set.reset_index(drop=True, inplace=True)   
+#____________
+
+
+
+
+
+#Hot encoding for categorical attributes on TEST SET
+
+from sklearn.preprocessing import OneHotEncoder
+
+non_numeric=['Pclass','Sex','SibSp','Parch', 'Embarked','Survived']
+for i in range(0, len(non_numeric)):
+    for j in range(0, len(strat_test_set)):
+        strat_test_set[non_numeric[i]][j]=non_numeric[i]+"_"+ str(strat_test_set[non_numeric[i]][j])
+    
+     
+encoder=OneHotEncoder()
+test=encoder.fit_transform(strat_test_set[['Pclass','Sex','SibSp','Parch', 'Embarked','Survived']])
+
+O=test.toarray()
+cat=np.concatenate(encoder.categories_)
+
+test_set=pd.DataFrame(O, columns=cat)
+
+test_set=pd.merge(test_set, strat_test_set[['Age','Fare']],left_index=True, right_index=True)
+
+test_set['Survived']=test_set['Survived_1']
+test_set.drop(['Survived_1','Survived_0'] ,axis=1, inplace=True)
+
+
+
+
+#Hot encoding for categorical attributes on TRAIN SET
+
+from sklearn.preprocessing import OneHotEncoder
+
+non_numeric=['Pclass','Sex','SibSp','Parch', 'Embarked','Survived']
+for i in range(0, len(non_numeric)):
+    for j in range(0, len(strat_train_set)):
+        strat_train_set[non_numeric[i]][j]=non_numeric[i]+"_"+ str(strat_train_set[non_numeric[i]][j])
+    
+     
+encoder=OneHotEncoder()
+test=encoder.fit_transform(strat_train_set[['Pclass','Sex','SibSp','Parch', 'Embarked','Survived']])
+
+O=test.toarray()
+cat=np.concatenate(encoder.categories_)
+
+train_set=pd.DataFrame(O, columns=cat)
+
+train_set=pd.merge(train_set, strat_train_set[['Age','Fare']],left_index=True, right_index=True)
+
+train_set['Survived']=train_set['Survived_1']
+train_set.drop(['Survived_1','Survived_0'] ,axis=1, inplace=True)
+
+# creating X_train, y_train, x_test, y_test
+
+y_train=train_set['Survived']
+x_train=train_set.drop("Survived", axis=1)
+
+y_test=test_set['Survived']
+x_test['Parch_6']=0
+x_test['Parch_3']=0
+x_test['Embarked_S']=0
+x_test=test_set.drop("Survived", axis=1)
+
+
+
+
+
+#__________________SGDClassifier
+from sklearn.linear_model import SGDClassifier
+from sklearn.model_selection import cross_val_score
+
+
+sgd = SGDClassifier(random_state=42)
+sgd.fit(x_train, y_train)
+Y_pred = sgd.predict(x_test)
+
+cross_val_score(sgd, x_train, y_train, cv=4, scoring='accuracy')
+accuracy_sgd=np.mean(cross_val_score(sgd, x_train, y_train, cv=4, scoring='accuracy'))
+
+
+
+#__________________LogisticRegression
+from sklearn.linear_model import LogisticRegression
+
+logreg = LogisticRegression()
+logreg.fit(x_train, y_train)
+
+
+cross_val_score(logreg, x_train, y_train, cv=4, scoring='accuracy')
+accuracy_logreg=np.mean(cross_val_score(logreg, x_train, y_train, cv=4, scoring='accuracy'))
+
+
+
+#__________________RandomForestClassifier
+from  sklearn.ensemble import RandomForestClassifier
+random_forest = RandomForestClassifier(n_estimators=100)
+random_forest.fit(x_train, y_train)
+
+Y_prediction = random_forest.predict(x_test)
+
+cross_val_score(random_forest, x_train, y_train, cv=4, scoring='accuracy')
+accuracy_random_forest=np.mean(cross_val_score(random_forest, x_train, y_train, cv=4, scoring='accuracy'))
+
+
+#__________________DecisionTreeClassifier
+from sklearn.tree import DecisionTreeClassifier
+decision_tree = DecisionTreeClassifier() 
+decision_tree.fit(x_train, y_train) 
+Y_pred = decision_tree.predict(x_test) 
+
+cross_val_score(decision_tree, x_train, y_train, cv=4, scoring='accuracy')
+accuracy_decision_tree=np.mean(cross_val_score(decision_tree, x_train, y_train, cv=4, scoring='accuracy'))
+
+
+
+
+#___best model
+accuracy_random_forest #0.81296006624954
+   accuracy_decision_tree  #0.7697885995583365
+accuracy_sgd  #0.7985772451232978
